@@ -1,0 +1,28 @@
+name: Baixar vídeo do Drive
+on:
+  workflow_dispatch:
+    inputs:
+      drive_id:
+        description: "ID do arquivo no Google Drive (compartilhado por link)"
+        required: true
+      nome:
+        description: "Nome final do vídeo (ex.: evang2311-reels1.mp4)"
+        required: true
+permissions:
+  contents: write
+jobs:
+  baixar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar do Drive
+        run: |
+          curl -sSL -o "${{ inputs.nome }}" "https://drive.usercontent.google.com/download?id=${{ inputs.drive_id }}&export=download&confirm=t"
+          ls -la "${{ inputs.nome }}"
+          file "${{ inputs.nome }}" | tee tipo.txt
+          grep -qiE 'MP4|ISO Media|QuickTime' tipo.txt || (echo "Não veio um vídeo (arquivo não está liberado por link?)"; head -c 400 "${{ inputs.nome }}"; exit 1)
+      - name: Publicar na release de vídeos
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view videos -R ${{ github.repository }} >/dev/null 2>&1 || gh release create videos -R ${{ github.repository }} --title "Vídeos" --notes "Vídeos originais para o robô de postagem"
+          gh release upload videos "${{ inputs.nome }}" --clobber -R ${{ github.repository }}
